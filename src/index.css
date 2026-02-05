@@ -1,0 +1,328 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    /* Default / Slate Theme (Dark) */
+    --bg-dark: #0f172a;
+    --bg-deep: #020617;
+
+    --primary: #38bdf8;
+    --primary-dim: rgba(56, 189, 248, 0.1);
+    --primary-hover: #0ea5e9;
+
+    --danger: #ef4444;
+    --danger-dim: rgba(239, 68, 68, 0.1);
+    --danger-hover: #dc2626;
+
+    --warning: #f59e0b;
+    --success: #10b981;
+
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+
+    --glass-bg: rgba(30, 41, 59, 0.4);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-highlight: rgba(255, 255, 255, 0.03);
+    --glass-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+
+    --map-filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    --bg-gradient: radial-gradient(circle at 50% 0%, #1e293b 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.05) 0%, transparent 30%);
+
+    --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+    --radius-lg: 16px;
+    --radius-sm: 8px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light Mode Override */
+[data-theme='light'] {
+    --bg-dark: #f1f5f9;
+    --bg-deep: #ffffff;
+
+    --primary: #0284c7;
+    /* Darker blue for contrast */
+    --primary-dim: rgba(2, 132, 199, 0.1);
+    --primary-hover: #0369a1;
+
+    --danger: #dc2626;
+    --danger-dim: rgba(220, 38, 38, 0.1);
+    --danger-hover: #b91c1c;
+
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(0, 0, 0, 0.05);
+    --glass-highlight: rgba(255, 255, 255, 0.5);
+    --glass-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+    --map-filter: none;
+    /* Normal map for light mode */
+    --bg-gradient: radial-gradient(circle at 50% 0%, #e2e8f0 0%, transparent 50%);
+}
+
+/* Neon Mode Override (High Contrast) */
+[data-theme='neon'] {
+    --bg-dark: #000000;
+    --bg-deep: #050505;
+
+    --primary: #00ff00;
+    /* Neon Lime */
+    --primary-dim: rgba(0, 255, 0, 0.1);
+    --primary-hover: #33ff33;
+
+    --danger: #ff0055;
+    /* Neon Pink */
+    --danger-dim: rgba(255, 0, 85, 0.1);
+    --danger-hover: #ff3377;
+
+    --warning: #ffff00;
+    --success: #00ff99;
+
+    --text-main: #ffffff;
+    --text-muted: #a0a0a0;
+
+    --glass-bg: rgba(10, 10, 10, 0.8);
+    --glass-border: rgba(0, 255, 0, 0.3);
+    /* Green borders */
+    --glass-highlight: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+
+    --map-filter: invert(100%) contrast(120%);
+    --bg-gradient: none;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: var(--bg-deep);
+    background-image: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.5s ease;
+}
+
+#root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Typography --- */
+h1,
+h2,
+h3,
+h4 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--text-main);
+}
+
+h1 {
+    font-size: 2.25rem;
+}
+
+h2 {
+    font-size: 1.875rem;
+}
+
+h3 {
+    font-size: 1.5rem;
+}
+
+p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+/* --- Components --- */
+
+/* Ultra-Glass Card */
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-highlight);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Subtle inner glow for active cards */
+.glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    opacity: 0.5;
+}
+
+/* Inputs */
+input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    margin-bottom: 1rem;
+    background: rgba(125, 125, 125, 0.1);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-family: var(--font-main);
+    font-size: 0.95rem;
+    transition: var(--transition);
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(125, 125, 125, 0.15);
+    box-shadow: 0 0 0 2px var(--primary-dim);
+}
+
+/* Buttons */
+button {
+    cursor: pointer;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #fff;
+    /* Force white text mostly, or dynamic based on theme if needed */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='light'] .btn-primary {
+    color: #fff;
+}
+
+[data-theme='slate'] .btn-primary {
+    color: #020617;
+}
+
+/* Dark text on bright button for slate */
+[data-theme='neon'] .btn-primary {
+    color: #000;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: var(--danger-hover);
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+}
+
+.btn-outline:hover {
+    border-color: var(--text-main);
+    color: var(--text-main);
+    background: rgba(125, 125, 125, 0.05);
+}
+
+/* --- Map Customization --- */
+.leaflet-container {
+    background: var(--bg-dark) !important;
+    z-index: 0;
+}
+
+.leaflet-tile-pane {
+    filter: var(--map-filter);
+    transition: filter 0.5s ease;
+}
+
+/* Keep popups and markers normal */
+.leaflet-marker-pane,
+.leaflet-popup-pane {
+    filter: none;
+}
+
+/* Refined Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    /* Fixed width sidebar for vitals */
+    grid-template-rows: auto 1fr;
+    gap: 1.5rem;
+    height: calc(100vh - 120px);
+    /* Fill rest of screen */
+}
+
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+}
+
+/* Console Log */
+.console-log {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    color: var(--primary);
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    height: 180px;
+    overflow-y: auto;
+    border: 1px solid var(--glass-border);
+}
+
+.console-entry {
+    margin-bottom: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0.9;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
