@@ -14,13 +14,17 @@ const Emergency = () => {
     const [status, setStatus] = useState('initiating'); // initiating | sent | cancelled
     const [profile, setProfile] = useState({});
 
-    // Load profile to get emergency number
+    // Load profile (prioritize snapshot from alert state)
     useEffect(() => {
-        const storedProfile = localStorage.getItem(`driver_profile_${user?.email}`);
-        if (storedProfile) {
-            setProfile(JSON.parse(storedProfile));
+        if (state?.profileData) {
+            setProfile(state.profileData);
+        } else {
+            const storedProfile = localStorage.getItem(`driver_profile_${user?.email}`);
+            if (storedProfile) {
+                setProfile(JSON.parse(storedProfile));
+            }
         }
-    }, [user]);
+    }, [user, state]);
 
     useEffect(() => {
         if (status !== 'initiating') return;
@@ -84,12 +88,31 @@ const Emergency = () => {
                     <PhoneCall size={80} color="var(--primary)" style={{ marginBottom: '1rem' }} />
                     <h1>Help is on the way.</h1>
                     <p style={{ fontSize: '1.2rem', margin: '1rem 0' }}>Data successfully transmitted to Emergency Response Center.</p>
-                    <div className="glass-card" style={{ marginTop: '2rem', textAlign: 'left', minWidth: '300px' }}>
-                        <p><strong>Driver:</strong> {user?.name}</p>
-                        <p><strong>Reason:</strong> {state?.trigger}</p>
-                        <p><strong>Vitals:</strong> {state?.value}</p>
-                        <p><strong>Medical ID:</strong> {profile.medicalCondition || 'N/A'}</p>
+
+                    <div className="glass-card" style={{ marginTop: '2rem', textAlign: 'left', minWidth: '400px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
+                            <h3 style={{ fontSize: '1.2rem', color: 'var(--primary)' }}>Incident Report</h3>
+                            <p><strong>Driver:</strong> {user?.name}</p>
+                            <p><strong>Reason:</strong> {state?.trigger}</p>
+                            <p><strong>Vitals:</strong> {state?.value}</p>
+                            <p><strong>Location:</strong> {state?.location ? `${state.location[0].toFixed(4)}, ${state.location[1].toFixed(4)}` : 'Unknown'}</p>
+                        </div>
+
+                        <div>
+                            <h4 style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Medical Profile</h4>
+                            <p><strong>Condition:</strong> {profile.medicalCondition || 'None'}</p>
+                            <p><strong>Medications:</strong> {profile.medications || 'None'}</p>
+                            <p><strong>Blood Group:</strong> {profile.bloodGroup || 'Unknown'}</p>
+                        </div>
+
+                        <div>
+                            <h4 style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Vehicle & ID</h4>
+                            <p><strong>Vehicle:</strong> {profile.vehicleNumber || 'Unknown'}</p>
+                            <p><strong>License:</strong> {profile.licenseNumber || 'Unknown'}</p>
+                            <p><strong>Address:</strong> {profile.address || 'Unknown'}</p>
+                        </div>
                     </div>
+
                     <button className="btn-outline" style={{ marginTop: '2rem' }} onClick={() => navigate('/dashboard')}>
                         Return to Dashboard
                     </button>

@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { User, Activity, Edit2, Save, ArrowLeft } from 'lucide-react';
+import { User, Activity, Edit2, Save, ArrowLeft, Camera } from 'lucide-react';
 
 const Profile = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const fileInputRef = useRef(null);
     const [isEditing, setIsEditing] = useState(false);
     const [profile, setProfile] = useState({
         name: user?.name || '',
+        photo: '',
+        address: '',
+        licenseNumber: '',
+        vehicleNumber: '',
         age: '',
         weight: '',
         height: '',
@@ -22,7 +27,10 @@ const Profile = () => {
         // Load profile from local storage if exists
         const storedProfile = localStorage.getItem(`driver_profile_${user?.email}`);
         if (storedProfile) {
-            setProfile(JSON.parse(storedProfile));
+            setProfile(prev => ({
+                ...prev,
+                ...JSON.parse(storedProfile)
+            }));
         } else if (user?.name) {
             setProfile(p => ({ ...p, name: user.name }));
         }
@@ -31,6 +39,23 @@ const Profile = () => {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setProfile(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handlePhotoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setProfile(prev => ({ ...prev, photo: reader.result }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const triggerFileInput = () => {
+        if (isEditing && fileInputRef.current) {
+            fileInputRef.current.click();
+        }
     };
 
     const handleSave = () => {
@@ -47,8 +72,49 @@ const Profile = () => {
             <div className="glass-card animate-fade-in">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div className="glass-card flex-center" style={{ width: '80px', height: '80px', borderRadius: '50%', padding: 0, background: 'rgba(0, 242, 255, 0.1)' }}>
-                            <User size={40} color="var(--primary)" />
+                        <div
+                            className="glass-card flex-center"
+                            style={{
+                                width: '100px',
+                                height: '100px',
+                                borderRadius: '50%',
+                                padding: 0,
+                                background: 'rgba(0, 242, 255, 0.1)',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                cursor: isEditing ? 'pointer' : 'default',
+                                border: isEditing ? '2px dashed var(--primary)' : 'none'
+                            }}
+                            onClick={triggerFileInput}
+                        >
+                            {profile.photo ? (
+                                <img src={profile.photo} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                                <User size={50} color="var(--primary)" />
+                            )}
+
+                            {isEditing && (
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    background: 'rgba(0,0,0,0.6)',
+                                    height: '30px',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center'
+                                }}>
+                                    <Camera size={16} color="white" />
+                                </div>
+                            )}
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                accept="image/*"
+                                onChange={handlePhotoChange}
+                            />
                         </div>
                         <div>
                             <h2>{profile.name || 'Driver Profile'}</h2>
@@ -64,13 +130,14 @@ const Profile = () => {
                     </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
 
                     {/* Personal Details */}
                     <section>
                         <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Personal Details</h3>
                         <div style={{ display: 'grid', gap: '1rem' }}>
                             <Field label="Full Name" name="name" value={profile.name} isEditing={isEditing} onChange={handleChange} />
+                            <Field label="Address" name="address" value={profile.address} isEditing={isEditing} onChange={handleChange} placeholder="e.g. 123 Main St, City" />
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <Field label="Age" name="age" value={profile.age} isEditing={isEditing} onChange={handleChange} type="number" />
                                 <Field label="Blood Group" name="bloodGroup" value={profile.bloodGroup} isEditing={isEditing} onChange={handleChange} />
@@ -82,9 +149,29 @@ const Profile = () => {
                         </div>
                     </section>
 
-                    {/* Medical Details */}
+                    {/* Driver & Vehicle Details */}
                     <section>
-                        <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', color: isEditing ? 'var(--warning)' : 'inherit' }}>
+                        <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Driver & Vehicle Details</h3>
+                        <div style={{ display: 'grid', gap: '1rem' }}>
+                            <Field
+                                label="Driver License Number"
+                                name="licenseNumber"
+                                value={profile.licenseNumber}
+                                isEditing={isEditing}
+                                onChange={handleChange}
+                                placeholder="e.g. D12345678"
+                            />
+                            <Field
+                                label="Vehicle Number"
+                                name="vehicleNumber"
+                                value={profile.vehicleNumber}
+                                isEditing={isEditing}
+                                onChange={handleChange}
+                                placeholder="e.g. ABC-1234"
+                            />
+                        </div>
+
+                        <h3 style={{ marginTop: '2rem', marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', color: isEditing ? 'var(--warning)' : 'inherit' }}>
                             Medical & Emergency
                         </h3>
                         <div style={{ display: 'grid', gap: '1rem' }}>
@@ -135,7 +222,7 @@ const Field = ({ label, name, value, isEditing, onChange, type = "text", placeho
             <input
                 type={type}
                 name={name}
-                value={value}
+                value={value || ''}
                 onChange={onChange}
                 placeholder={placeholder}
                 style={{ marginBottom: 0 }}
