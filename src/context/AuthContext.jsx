@@ -1,4 +1,13 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signOut, 
+    onAuthStateChanged,
+    updateProfile
+} from 'firebase/auth';
+import { ref, set, get } from 'firebase/database';
+import { auth, realtimeDb } from '../firebase';
 
 const AuthContext = createContext();
 
@@ -9,69 +18,76 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check local storage for existing session
-        const storedUser = localStorage.getItem('driver_guard_user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-        setLoading(false);
+        // Listen to Firebase Auth state changes
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                // Fetch additional user data from Realtime Database if needed
+                try {
+                    const userRef = ref(realtimeDb, `users/${currentUser.uid}`);
+                    const snapshot = await get(userRef);
+                    if (snapshot.exists()) {
+                        const userData = snapshot.val();
+                        setUser({ ...currentUser, ...userData });
+                    } else {
+                        setUser(currentUser);
+                    }
+                } catch (error) {
+                    console.error("Error fetching user data:", error);
+                    setUser(currentUser);
+                }
+            } else {
+                setUser(null);
+            }
+            setLoading(false);
+        });
+
+        return unsubscribe; // Cleanup subscription on unmount
     }, []);
 
-    const login = (email, password) => {
-        // Simulate login - in a real app, this would hit an API
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                // Simple mock validation
-                if (email && password) {
-                    // Check if user exists in "DB" (localStorage) but for now just mock login
-                    const storedDB = localStorage.getItem('driver_guard_db_users');
-                    let users = storedDB ? JSON.parse(storedDB) : [];
-
-                    const foundUser = users.find(u => u.email === email && u.password === password);
-
-                    if (foundUser) {
-                        const sessionUser = { email: foundUser.email, name: foundUser.name };
-                        setUser(sessionUser);
-                        localStorage.setItem('driver_guard_user', JSON.stringify(sessionUser));
-                        resolve(sessionUser);
-                    } else {
-                        reject('Invalid email or password');
-                    }
-                } else {
-                    reject('Email and password are required');
-                }
-            }, 800);
-        });
+    const login = async (email, password) => {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        return userCredential.user;
     };
 
-    const register = (userData) => {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                // Save to "DB"
-                const storedDB = localStorage.getItem('driver_guard_db_users');
-                let users = storedDB ? JSON.parse(storedDB) : [];
+    const register = async (userData) => {
+        try {
+            // 1. Create user in Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+            const newUser = userCredential.user;
 
-                // Check if exists
-                if (users.find(u => u.email === userData.email)) {
-                    // Actually reject here in real world, but for simplicity let's just overwrite or ignore
-                    // For this demo, let's allow it but warn conceptually
-                }
+            // 2. Update their display name in Auth (optional but good practice)
+            await updateProfile(newUser, { displayName: userData.name });
 
-                users.push(userData);
-                localStorage.setItem('driver_guard_db_users', JSON.stringify(users));
+            // 3. Save additional info (like their name) into the Realtime Database
+            try {
+                const userRef = ref(realtimeDb, `users/${newUser.uid}`);
+                await set(userRef, {
+                    uid: newUser.uid,
+                    email: userData.email,
+                    name: userData.name,
+                    role: 'driver',
+                    createdAt: new Date().toISOString()
+                });
+            } catch (dbError) {
+                console.error("Database write permission denied (User auth created though): ", dbError);
+                // We don't throw here so the user can still log in if DB rules are strict/locked
+            }
 
-                // Auto login
-                const sessionUser = { email: userData.email, name: userData.name };
-                setUser(sessionUser);
-                localStorage.setItem('driver_guard_user', JSON.stringify(sessionUser));
-                resolve(sessionUser);
-            }, 800);
-        });
-    }
+            // The onAuthStateChanged listener will automatically pick up the new user and set it in state
+            return newUser;
+        } catch (error) {
+            console.error("Registration error:", error);
+            throw error; // Let the UI handle the error message
+        }
+    };
 
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem('driver_guard_user');
+    const logout = async () => {
+        try {
+            await signOut(auth);
+            setUser(null);
+        } catch (error) {
+            console.error("Logout error:", error);
+        }
     };
 
     const value = {

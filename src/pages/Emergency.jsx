@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { PhoneCall, AlertOctagon, CheckCircle } from 'lucide-react';
 import MapView from '../components/MapView';
 import '../styles/animations.css';
+import { ref, get, push, set } from 'firebase/database';
+import { realtimeDb } from '../firebase';
 
 const Emergency = () => {
     const { state } = useLocation();
@@ -14,16 +16,24 @@ const Emergency = () => {
     const [status, setStatus] = useState('initiating'); // initiating | sent | cancelled
     const [profile, setProfile] = useState({});
 
-    // Load profile (prioritize snapshot from alert state)
+    // Load profile from Firebase
     useEffect(() => {
-        if (state?.profileData) {
-            setProfile(state.profileData);
-        } else {
-            const storedProfile = localStorage.getItem(`driver_profile_${user?.email}`);
-            if (storedProfile) {
-                setProfile(JSON.parse(storedProfile));
-            }
-        }
+        const fetchProfile = async () => {
+             if (user?.uid) {
+                 const userRef = ref(realtimeDb, `users/${user.uid}`);
+                 try {
+                     const snapshot = await get(userRef);
+                     if (snapshot.exists()) {
+                         setProfile(snapshot.val());
+                     } else if (state?.profileData) {
+                         setProfile(state.profileData);
+                     }
+                 } catch (err) {
+                     console.error("Failed to load profile for emergency", err);
+                 }
+             }
+        };
+        fetchProfile();
     }, [user, state]);
 
     useEffect(() => {
@@ -34,16 +44,45 @@ const Emergency = () => {
                 if (prev <= 1) {
                     clearInterval(timer);
                     setStatus('sent');
+                    
+                    // Log the incident to Firebase
+                    if (user?.uid) {
+                        try {
+                            const incidentsRef = ref(realtimeDb, `incidents/${user.uid}`);
+                            const newIncidentRef = push(incidentsRef);
+                            set(newIncidentRef, {
+                                trigger: state?.trigger || 'Critical Issue Detected',
+                                value: state?.value || 'Unknown Vitals',
+                                location: state?.location || null,
+                                timestamp: new Date().toISOString(),
+                                resolved: false
+                            });
+                        } catch (err) {
+                            console.error("Failed to log incident to Firebase", err);
+                        }
+                    }
+
                     return 0;
                 }
                 return prev - 1;
             });
         }, 1000);
         return () => clearInterval(timer);
-    }, [status]);
+    }, [status, user, state]);
 
     const handleImSafe = () => {
         setStatus('cancelled');
+        // Optionally log cancelled alarm to Firebase here
+        if (user?.uid) {
+             const incidentsRef = ref(realtimeDb, `incidents/${user.uid}`);
+             const newIncidentRef = push(incidentsRef);
+             set(newIncidentRef, {
+                 trigger: state?.trigger || 'Critical Issue Detected',
+                 status: 'cancelled_by_driver',
+                 timestamp: new Date().toISOString()
+             }).catch(console.error);
+        }
+
         setTimeout(() => navigate('/dashboard'), 2000);
     };
 

@@ -86,16 +86,11 @@ const Dashboard = () => {
         if (heartRate > MAX_HEARTRATE || drowsiness > MAX_DROWSINESS) {
             addLog("CRITICAL THRESHOLD BREACHED!");
 
-            // Get latest profile data to send with alert
-            const storedProfile = localStorage.getItem(`driver_profile_${user?.email}`);
-            const profileData = storedProfile ? JSON.parse(storedProfile) : {};
-
             navigate('/emergency', {
                 state: {
                     trigger: heartRate > MAX_HEARTRATE ? 'High Heart Rate' : 'Drowsiness Detected',
                     value: heartRate > MAX_HEARTRATE ? `${heartRate} BPM` : `${drowsiness}% Alertness`,
-                    location: location,
-                    profileData: { ...profileData, name: user?.name, email: user?.email }
+                    location: location
                 }
             });
         }

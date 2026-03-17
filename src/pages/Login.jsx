@@ -20,7 +20,8 @@ const Login = () => {
             await login(email, password);
             navigate('/dashboard');
         } catch (err) {
-            setError(err);
+            console.error(err);
+            setError(err.message || 'Login failed');
         } finally {
             setLoading(false);
         }
@@ -30,8 +31,8 @@ const Login = () => {
         <div className="flex-center" style={{ minHeight: '100vh', flexDirection: 'column', gap: '2rem' }}>
 
             <div className="animate-fade-in flex-center" style={{ gap: '1rem' }}>
-                <ShieldCheck size={48} color="var(--primary)" />
-                <h1 className="text-gradient">Driver Guard</h1>
+                <img src="/logo.svg" alt="App Logo" width="48" height="48" />
+                <h1 className="text-gradient">RoadSentinel</h1>
             </div>
 
             <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '400px' }}>

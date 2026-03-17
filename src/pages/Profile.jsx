@@ -2,12 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { User, Activity, Edit2, Save, ArrowLeft, Camera } from 'lucide-react';
+import { ref, set, get, update } from 'firebase/database';
+import { realtimeDb } from '../firebase';
 
 const Profile = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [profile, setProfile] = useState({
         name: user?.name || '',
         photo: '',
@@ -24,16 +28,27 @@ const Profile = () => {
     });
 
     useEffect(() => {
-        // Load profile from local storage if exists
-        const storedProfile = localStorage.getItem(`driver_profile_${user?.email}`);
-        if (storedProfile) {
-            setProfile(prev => ({
-                ...prev,
-                ...JSON.parse(storedProfile)
-            }));
-        } else if (user?.name) {
-            setProfile(p => ({ ...p, name: user.name }));
-        }
+        const fetchProfileData = async () => {
+            if (!user?.uid) return;
+            setLoading(true);
+            try {
+                const userRef = ref(realtimeDb, `users/${user.uid}`);
+                const snapshot = await get(userRef);
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    setProfile(prev => ({ ...prev, ...data }));
+                } else if (user?.name) {
+                    setProfile(p => ({ ...p, name: user.name }));
+                }
+            } catch (err) {
+                console.error("Error fetching profile from Firebase:", err);
+                setError("Failed to load profile details.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfileData();
     }, [user]);
 
     const handleChange = (e) => {
@@ -58,10 +73,23 @@ const Profile = () => {
         }
     };
 
-    const handleSave = () => {
-        localStorage.setItem(`driver_profile_${user?.email}`, JSON.stringify(profile));
-        setIsEditing(false);
+    const handleSave = async () => {
+        if (!user?.uid) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const userRef = ref(realtimeDb, `users/${user.uid}`);
+            // Use update instead of set to avoid wiping out other fields like createdAt
+            await update(userRef, profile);
+            setIsEditing(false);
+        } catch (err) {
+            console.error("Error saving profile to Firebase:", err);
+            setError("Failed to save changes. Please check permissions.");
+        } finally {
+            setLoading(false);
+        }
     };
+
 
     return (
         <div className="container" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
