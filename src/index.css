@@ -113,6 +113,8 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 /* --- Typography --- */
@@ -325,4 +327,107 @@ button {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
+}
+
+/* ==================================
+   MOBILE & RESPONSIVE APP OVERRIDES 
+   ================================== */
+
+.dashboard-container {
+    padding: 1.5rem;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Base constraints for cards to behave nicely */
+.glass-card {
+    width: 100%;
+    min-width: 0;
+}
+
+@media screen and (max-width: 768px) {
+    body {
+        font-size: 14px;
+    }
+
+    input, select, textarea, button {
+        font-size: 16px; /* Prevents iOS auto-zoom */
+    }
+
+    /* Change 100vh to auto to prevent mobile browsers clipping the screen UI */
+    .dashboard-container {
+        height: auto;
+        min-height: 100vh;
+        padding: 1rem;
+    }
+
+    /* Stack header items */
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.5rem;
+    }
+
+    /* Make top buttons full width */
+    .header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .header-actions button {
+        flex: 1;
+        padding: 0.8rem;
+    }
+
+    /* Shrink huge fonts for small screens */
+    h1 {
+        font-size: 1.8rem !important;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    /* Vitals card shrinking */
+    .glass-card svg {
+        max-width: 100%;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+
+    .console-log {
+        height: 250px;
+    }
+
+    /* Emergency Component shrinking */
+    .flex-center[style*="gridTemplateColumns"] {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .glass-card[style*="gridTemplateColumns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+        min-width: 100% !important;
+    }
 }

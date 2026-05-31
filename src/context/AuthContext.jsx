@@ -4,7 +4,8 @@ import {
     signInWithEmailAndPassword, 
     signOut, 
     onAuthStateChanged,
-    updateProfile
+    updateProfile,
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
 import { auth, realtimeDb } from '../firebase';
@@ -90,11 +91,16 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const resetPassword = async (email) => {
+        return await sendPasswordResetEmail(auth, email);
+    };
+
     const value = {
         user,
         login,
         register,
         logout,
+        resetPassword,
         loading
     };
 

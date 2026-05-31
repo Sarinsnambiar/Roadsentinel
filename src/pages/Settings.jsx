@@ -1,16 +1,29 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { ArrowLeft, LogOut, Sun, Moon, Zap, Smartphone, Check } from 'lucide-react';
+import { ArrowLeft, LogOut, Sun, Moon, Zap, Smartphone, Check, KeyRound } from 'lucide-react';
 
 const Settings = () => {
-    const { logout, user } = useAuth();
+    const { logout, user, resetPassword } = useAuth();
     const { theme, setTheme } = useTheme();
     const navigate = useNavigate();
+    const [resetMsg, setResetMsg] = useState('');
 
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    const handleResetPassword = async () => {
+        try {
+            await resetPassword(user.email);
+            setResetMsg('Password reset link sent to your email.');
+            setTimeout(() => setResetMsg(''), 4000);
+        } catch (error) {
+            console.error(error);
+            setResetMsg('Failed to send reset link.');
+        }
     };
 
     return (
@@ -77,10 +90,16 @@ const Settings = () => {
                         <p style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>Logged in as</p>
                         <p>{user?.email}</p>
                     </div>
-                    <button className="btn-danger" onClick={handleLogout}>
-                        Logout
-                    </button>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        <button className="btn-outline" onClick={handleResetPassword} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <KeyRound size={16} /> Reset Password
+                        </button>
+                        <button className="btn-danger" onClick={handleLogout}>
+                            Logout
+                        </button>
+                    </div>
                 </div>
+                {resetMsg && <div style={{ color: 'var(--success)', marginTop: '1rem', padding: '0.5rem', background: 'rgba(0,255,0,0.1)', borderRadius: '4px' }}>{resetMsg}</div>}
             </section>
 
         </div>

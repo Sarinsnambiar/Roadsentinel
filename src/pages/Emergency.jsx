@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PhoneCall, AlertOctagon, CheckCircle } from 'lucide-react';
 import MapView from '../components/MapView';
 import '../styles/animations.css';
-import { ref, get, push, set } from 'firebase/database';
+import { ref, get, push, set, update } from 'firebase/database';
 import { realtimeDb } from '../firebase';
 
 const Emergency = () => {
@@ -15,6 +15,7 @@ const Emergency = () => {
     const [count, setCount] = useState(10);
     const [status, setStatus] = useState('initiating'); // initiating | sent | cancelled
     const [profile, setProfile] = useState({});
+    const profileRef = useRef(profile);
 
     // Load profile from Firebase
     useEffect(() => {
@@ -25,8 +26,10 @@ const Emergency = () => {
                      const snapshot = await get(userRef);
                      if (snapshot.exists()) {
                          setProfile(snapshot.val());
+                         profileRef.current = snapshot.val();
                      } else if (state?.profileData) {
                          setProfile(state.profileData);
+                         profileRef.current = state.profileData;
                      }
                  } catch (err) {
                      console.error("Failed to load profile for emergency", err);
@@ -57,6 +60,50 @@ const Emergency = () => {
                                 timestamp: new Date().toISOString(),
                                 resolved: false
                             });
+
+                            // FIRE TWILIO WHATSAPP DIRECTLY FROM APP
+                            // Reduce Safety Score explicitly
+                            const userRef = ref(realtimeDb, `users/${user.uid}`);
+                            const currentScore = profileRef.current.safetyScore !== undefined ? profileRef.current.safetyScore : 100;
+                            const newScore = Math.max(0, currentScore - 20); // deduct 20 pts per emergency
+                            update(userRef, { safetyScore: newScore }).catch(console.error);
+                            
+                            // Immediately update local ref to prevent multiple deductions if re-rendered rapidly
+                            profileRef.current = { ...profileRef.current, safetyScore: newScore };
+                            const accountSid = import.meta.env.VITE_TWILIO_ACCOUNT_SID;
+                            const authToken = import.meta.env.VITE_TWILIO_AUTH_TOKEN;
+                            const fromNum = import.meta.env.VITE_TWILIO_PHONE_NUMBER || 'whatsapp:+14155238886';
+                            
+                            if (accountSid && authToken) {
+                                const currentProfile = profileRef.current;
+                                // FORCE sending to the sandbox-verified testing number, otherwise Twilio silently drops the message
+                                const toNum = 'whatsapp:+919633757536';
+                                console.log(`Routing WhatsApp Alert to verified sandbox number: ${toNum}`);
+
+                                // Consolidating all Firebase driver records into the WhatsApp variable payload
+                                const driverDetails = `Name: ${currentProfile.name || 'Unknown'} | Lic: ${currentProfile.licenseNumber || 'None'} | Veh: ${currentProfile.vehicleNumber || 'Unknown'} | Blood: ${currentProfile.bloodGroup || 'Unknown'} | Cond: ${currentProfile.medicalCondition || 'None'} | Meds: ${currentProfile.medications || 'None'} | Addr: ${currentProfile.address || 'Unknown'}`;
+                                const alertReason = `${state?.trigger}: ${state?.value}`;
+
+                                const bodyParams = new URLSearchParams();
+                                bodyParams.append('To', toNum);
+                                bodyParams.append('From', fromNum);
+                                bodyParams.append('ContentSid', 'HXb5b62575e6e4ff6129ad7c8efe1f983e');
+                                bodyParams.append('ContentVariables', JSON.stringify({ "1": driverDetails, "2": alertReason }));
+
+                                fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/x-www-form-urlencoded',
+                                        // Base64 encode for Basic Auth
+                                        'Authorization': 'Basic ' + window.btoa(`${accountSid}:${authToken}`)
+                                    },
+                                    body: bodyParams.toString()
+                                })
+                                .then(res => res.json())
+                                .then(data => console.log('✅ Twilio WhatsApp Alert Dispatched from Emergency Page:', data))
+                                .catch(err => console.error('❌ Twilio WhatsApp Error:', err));
+                            }
+
                         } catch (err) {
                             console.error("Failed to log incident to Firebase", err);
                         }

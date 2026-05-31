@@ -27,3 +27,8 @@ dist-ssr
 android/
 ios/
 node_modules
+
+# Temp & build files
+*.zip
+*tunnel.txt
+tunnels_output.txt

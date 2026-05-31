@@ -1,26 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Moon, Sun, AlertTriangle, User, MapPin, Terminal, Settings, ShieldCheck, Cloud, Wind, Droplets, CloudRain } from 'lucide-react';
-import MapView from '../components/MapView';
+import { Activity, Moon, Sun, AlertTriangle, User, Terminal, Settings, ShieldCheck, Cloud, Wind, Droplets, CloudRain, Heart, Phone, Info, Eye } from 'lucide-react';
+import { ref, onValue } from 'firebase/database';
+import { realtimeDb } from '../firebase';
 
 const Dashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const consoleRef = useRef(null);
 
-    // Simulation State
-    const [heartRate, setHeartRate] = useState(75);
-    const [drowsiness, setDrowsiness] = useState(10); // 0-100%
-    const [isSimulating, setIsSimulating] = useState(true);
+    // Realtime Sensor State
+    // (Additional sensors removed)
     const [logs, setLogs] = useState([]);
-    const [location, setLocation] = useState([40.7128, -74.0060]); // NYC Default
     const [safetyScore, setSafetyScore] = useState(100);
     const [weather] = useState({ temp: 72, condition: 'Rainy', humidity: 65, wind: 12 });
-
-    // Thresholds
-    const MAX_HEARTRATE = 120;
-    const MAX_DROWSINESS = 80;
+    const [profileData, setProfileData] = useState({});
 
     const addLog = (msg) => {
         const time = new Date().toLocaleTimeString();
@@ -29,116 +24,65 @@ const Dashboard = () => {
 
     useEffect(() => {
         addLog("System initialized. Monitoring active.");
-
-        // Fake location movement
-        const moveTimer = setInterval(() => {
-            setLocation(prev => [prev[0] + 0.0001, prev[1] + 0.0001]);
-        }, 3000);
-
-        return () => clearInterval(moveTimer);
     }, []);
 
+    // Firebase Hardware Listener (Replaces Simulation)
     useEffect(() => {
-        // Calculate Safety Score
-        const hrPenalty = Math.max(0, Math.abs(heartRate - 75) - 15); // Penalty starts if HR diff > 15
-        const fatiguePenalty = Math.max(0, drowsiness - 15); // Penalty starts if drowsiness > 15%
+        if (!user?.uid) return;
 
-        let score = 100 - (hrPenalty * 1.5) - (fatiguePenalty * 1);
-        score = Math.min(100, Math.max(0, score));
+        addLog("Waiting for Raspberry Pi telemetry...");
+        const sensorsRef = ref(realtimeDb, `sensors/${user.uid}`);
 
-        setSafetyScore(Math.floor(score));
-    }, [heartRate, drowsiness]);
-
-    useEffect(() => {
-        if (!isSimulating) return;
-
-        const interval = setInterval(() => {
-            // Fluctuate Heart Rate
-            setHeartRate(prev => {
-                const change = Math.floor(Math.random() * 5) - 2;
-                let newVal = prev + change;
-                if (newVal < 60 && prev < 100) newVal = 60;
-                return newVal;
-            });
-
-            // Fluctuate Drowsiness
-            setDrowsiness(prev => {
-                const change = Math.floor(Math.random() * 3) - 1;
-                let newVal = prev + change;
-                if (newVal < 0) newVal = 0;
-                return newVal;
-            });
-
-        }, 1000);
-
-        // Occasional Log
-        const logInterval = setInterval(() => {
-            if (Math.random() > 0.8) {
-                addLog(`Sensor Update: HR ${heartRate}bpm | Fatigue ${drowsiness}%`);
-            }
-        }, 2000);
-
-        return () => { clearInterval(interval); clearInterval(logInterval); };
-    }, [isSimulating, heartRate, drowsiness]);
-
-    // Check Thresholds
-    useEffect(() => {
-        if (heartRate > MAX_HEARTRATE || drowsiness > MAX_DROWSINESS) {
-            addLog("CRITICAL THRESHOLD BREACHED!");
-
-            navigate('/emergency', {
-                state: {
-                    trigger: heartRate > MAX_HEARTRATE ? 'High Heart Rate' : 'Drowsiness Detected',
-                    value: heartRate > MAX_HEARTRATE ? `${heartRate} BPM` : `${drowsiness}% Alertness`,
-                    location: location
+        const unsubscribe = onValue(sensorsRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                if (data.isEmergency === true) {
+                    navigate('/emergency', {
+                        state: { trigger: 'External Emergency Triggered', value: 'Critical' }
+                    });
                 }
-            });
-        }
-    }, [heartRate, drowsiness, navigate, location, user]);
+            }
+        });
 
-    const simulateSafe = () => {
-        setHeartRate(75);
-        setDrowsiness(10);
-        setIsSimulating(true);
-        addLog("Simulation reset. Systems nominal.");
-    };
+        return () => unsubscribe();
+    }, [user, navigate]);
 
-    const simulateDangerHeart = () => {
-        setIsSimulating(false);
-        addLog("WARNING: Simulating Cardiac Event...");
-        let bpm = 100;
-        const rampUp = setInterval(() => {
-            bpm += 5;
-            setHeartRate(bpm);
-            if (bpm > 125) clearInterval(rampUp);
-        }, 500);
-    };
+    // Fetch Profile Data
+    useEffect(() => {
+        if (!user?.uid) return;
+        const profileRef = ref(realtimeDb, `users/${user.uid}`);
+        const unsubscribe = onValue(profileRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                setProfileData(data);
+                if (data.safetyScore !== undefined) {
+                    setSafetyScore(data.safetyScore);
+                }
+            }
+        });
+        return () => unsubscribe();
+    }, [user]);
 
-    const simulateDrowsy = () => {
-        setIsSimulating(false);
-        addLog("WARNING: Simulating Driver Fatigue...");
-        let level = 50;
-        const rampUp = setInterval(() => {
-            level += 10;
-            setDrowsiness(level);
-            if (level > 85) clearInterval(rampUp);
-        }, 500);
+    // Test function
+    const triggerTestEmergency = () => {
+        addLog("TEST TRIGGER: Simulating manual emergency...");
+        navigate('/emergency', { state: { trigger: 'Manual Test Trigger', value: 'Test' } });
     };
 
     return (
-        <div className="container" style={{ padding: '1.5rem', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="dashboard-container">
 
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div className="dashboard-header">
                 <div>
-                    <h1 style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <ShieldCheck size={32} color="var(--primary)" />
                         RoadSentinel
                         <span style={{ fontSize: '0.8rem', verticalAlign: 'middle', background: 'var(--success)', color: '#000', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>LIVE</span>
                     </h1>
                     <p style={{ fontSize: '0.9rem', marginLeft: '2.5rem' }}>Driver: {user?.name || 'Unknown User'}</p>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div className="header-actions">
                     <button className="btn-outline" onClick={() => navigate('/settings')} style={{ padding: '0.5rem 1rem' }}>
                         <Settings size={16} /> Settings
                     </button>
@@ -173,45 +117,17 @@ const Dashboard = () => {
                             </div>
                             <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
                                 Drive safely to keep your score high. <br />
-                                <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>Impacted by HR & Fatigue</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Heart Rate Card */}
-                    <div className="glass-card" style={{ padding: '1.5rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                            <span style={{ color: 'var(--text-muted)', display: 'flex', gap: '0.5rem' }}><Activity size={18} /> Heart Rate</span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>Normal Range: 60-100</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '1rem' }}>
-                            <span style={{ fontSize: '3.5rem', fontWeight: '800', lineHeight: '1', color: heartRate > 100 ? 'var(--danger)' : 'var(--text-main)' }}>{heartRate}</span>
-                            <span style={{ color: 'var(--text-muted)' }}>BPM</span>
-                        </div>
-                        <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: '100%', background: heartRate > 100 ? 'var(--danger)' : 'var(--primary)', animation: `pulse-red ${60 / heartRate}s infinite` }} />
-                        </div>
-                    </div>
 
-                    {/* Fatigue Card */}
-                    <div className="glass-card" style={{ padding: '1.5rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                            <span style={{ color: 'var(--text-muted)', display: 'flex', gap: '0.5rem' }}><Moon size={18} /> Fatigue Index</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '1rem' }}>
-                            <span style={{ fontSize: '3.5rem', fontWeight: '800', lineHeight: '1', color: drowsiness > 50 ? 'var(--warning)' : 'var(--text-main)' }}>{drowsiness}</span>
-                            <span style={{ color: 'var(--text-muted)' }}>%</span>
-                        </div>
-                        <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${drowsiness}%`, background: drowsiness > 60 ? 'var(--warning)' : 'var(--success)', transition: 'width 0.5s' }} />
-                        </div>
-                    </div>
 
                     {/* Weather Card */}
                     <div className="glass-card" style={{ padding: '1.2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                             <span style={{ color: 'var(--text-muted)', display: 'flex', gap: '0.5rem' }}><Cloud size={18} /> Weather</span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>New York, NY</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>Mananthavady</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -228,14 +144,17 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    {/* Controls */}
-                    <div className="glass-card" style={{ padding: '1rem', borderStyle: 'dashed' }}>
-                        <p style={{ fontSize: '0.8rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>SIMULATION CONTROLS</p>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            <button className="btn-danger" style={{ fontSize: '0.8rem', padding: '0.5rem' }} onClick={simulateDangerHeart}>Trigger HR</button>
-                            <button className="btn-outline" style={{ fontSize: '0.8rem', padding: '0.5rem', borderColor: 'var(--warning)', color: 'var(--warning)' }} onClick={simulateDrowsy}>Trigger Fatigue</button>
-                            <button className="btn-outline" style={{ fontSize: '0.8rem', padding: '0.5rem' }} onClick={simulateSafe}>Reset</button>
+                    {/* Device Status & Test Controls */}
+                    <div className="glass-card" style={{ padding: '1.5rem', borderStyle: 'dashed', borderColor: 'var(--primary)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--success)', animation: 'pulse-red 2s infinite' }}></div>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Pi Sync Active</span>
+                            </div>
                         </div>
+                        <button className="btn-danger" style={{ width: '100%', padding: '0.8rem' }} onClick={triggerTestEmergency}>
+                            <AlertTriangle size={18} /> TRIGGER TEST EMERGENCY
+                        </button>
                     </div>
 
                 </div>
@@ -243,18 +162,51 @@ const Dashboard = () => {
                 {/* Right Column: Map & Logs */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: 0 }}>
 
-                    {/* Map */}
-                    <div className="glass-card" style={{ padding: '0', height: '100%', minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ padding: '1rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><MapPin size={16} /> Live Location</span>
-                            <span style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>LAT: {location[0].toFixed(4)} LNG: {location[1].toFixed(4)}</span>
+                    {/* Digital Medical ID Card */}
+                    <div className="glass-card" style={{ padding: '0', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '1rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.2) 0%, rgba(15, 23, 42, 0) 100%)' }}>
+                            <span style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontWeight: 'bold', color: 'var(--danger)' }}>
+                                <Heart size={18} fill="var(--danger)" /> Emergency Medical ID
+                            </span>
                         </div>
-                        <div style={{ flex: 1, position: 'relative' }}>
-                            <MapView center={location} height="100%" />
-                            {/* Note: In a real implementation we'd need to force re-render MapView if center changes drastically, 
-                        but for small simulated movements, MapContainer center prop changes might not animate. 
-                        Usually we use a helper component inside MapContainer to flyTo. 
-                        For this MVP, it initializes once. */}
+                        <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)' }}>
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {profileData.photo ? (
+                                        <img src={profileData.photo} alt="Driver" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <User size={30} color="var(--text-muted)" />
+                                    )}
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0 }}>{profileData.name || user?.name || 'Driver Name'}</h3>
+                                    <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)' }}>Age: {profileData.age || 'Not specified'}</p>
+                                </div>
+                            </div>
+                            <div style={{ padding: '0.5rem 0.8rem', borderRadius: '8px', background: 'var(--danger)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', minWidth: '60px' }}>
+                                <span style={{ fontSize: '0.65rem', opacity: 0.9, textTransform: 'uppercase', marginBottom: '2px' }}>Blood</span>
+                                <span style={{ fontSize: '1.1rem', fontWeight: 'bold', lineHeight: '1' }}>{profileData.bloodGroup || 'N/A'}</span>
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Info size={14} /> Known Medical Conditions</div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: '500' }}>{profileData.medicalCondition || 'None reported'}</div>
+                            </div>
+
+                            <div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><AlertTriangle size={14} /> Allergies & Medications</div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: '500', color: 'var(--danger)' }}>{profileData.medications || 'None'}</div>
+                            </div>
+
+                            <div style={{ marginTop: '0.5rem', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', borderLeft: '4px solid var(--primary)' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Phone size={14} /> Primary Emergency Contact</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 'bold' }}>{profileData.emergencyContactName || 'Not Set'}</span>
+                                    <span style={{ fontFamily: 'monospace', color: 'var(--primary)' }}>{profileData.emergencyNumber || 'Not Set'}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

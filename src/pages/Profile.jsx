@@ -24,6 +24,7 @@ const Profile = () => {
         bloodGroup: '',
         medicalCondition: '',
         medications: '',
+        emergencyContactName: '',
         emergencyNumber: ''
     });
 
@@ -221,6 +222,20 @@ const Profile = () => {
                             />
 
                             <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid var(--danger)', borderRadius: '8px', background: 'rgba(255, 15, 75, 0.05)' }}>
+                                <label style={{ display: 'block', color: 'var(--danger)', fontWeight: 'bold', marginBottom: '0.5rem' }}>Emergency Contact Name</label>
+                                {isEditing ? (
+                                    <input
+                                        type="text"
+                                        name="emergencyContactName"
+                                        value={profile.emergencyContactName}
+                                        onChange={handleChange}
+                                        style={{ borderColor: 'var(--danger)', marginBottom: '1rem' }}
+                                        placeholder="e.g. Sarah Connor (Wife)"
+                                    />
+                                ) : (
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '1rem' }}>{profile.emergencyContactName || 'Not Set'}</div>
+                                )}
+
                                 <label style={{ display: 'block', color: 'var(--danger)', fontWeight: 'bold', marginBottom: '0.5rem' }}>Emergency Contact Number</label>
                                 {isEditing ? (
                                     <input
